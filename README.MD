@@ -20,6 +20,18 @@ npm run dev
 
 Starts the app with Electron developer tools opened automatically. Use this when actively working on the app.
 
+### Linux video decoding
+
+Hardware video decoding is allowed by default when supported by Electron and the installed graphics driver. The Nix development shell includes the VAAPI runtime (`libva`); re-enter it with `nix develop` after updating.
+
+If VAAPI causes GPU crashes or video decode errors on your driver, enable the software-decoding workaround:
+
+```bash
+INCYCLIST_SOFTWARE_VIDEO_DECODE=1 npm start
+```
+
+The same environment variable works with `npm run dev` or the packaged application. Software decoding leaves GPU compositing enabled but may stutter with demanding videos such as 4K/50 fps.
+
 
 ## Building the Installers
 

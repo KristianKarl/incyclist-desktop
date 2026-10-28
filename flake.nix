@@ -29,6 +29,7 @@
             libnotify
             libsecret
             libusb1
+            libva
             libX11
             libXScrnSaver
             libXcomposite
