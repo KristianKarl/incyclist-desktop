@@ -7,12 +7,62 @@ jest.mock('./features', () => ({ initFeaturesApp: jest.fn(), initFeaturesWeb: je
 jest.mock('electron', () => ({
     ipcMain: { on: jest.fn(), once: jest.fn() },
     ipcRenderer: { on: jest.fn() },
-    app: { quit: jest.fn(), exit: jest.fn(), getPath: jest.fn(() => './test/out') },
+    app: {
+        quit: jest.fn(), exit: jest.fn(), getPath: jest.fn(() => './test/out'),
+        commandLine: { appendSwitch: jest.fn() }
+    },
     globalShortcut: { unregisterAll: jest.fn() },
 }))
 
 const { app, globalShortcut } = require('electron')
 const IncyclistApp = require('./app.js')
+
+describe('IncyclistApp - video decoding configuration', () => {
+    let platformDescriptor
+
+    beforeEach(() => {
+        jest.clearAllMocks()
+        platformDescriptor = Object.getOwnPropertyDescriptor(process, 'platform')
+        Object.defineProperty(process, 'platform', { value: 'linux' })
+        jest.replaceProperty(process, 'env', { ...process.env })
+        delete process.env.INCYCLIST_SOFTWARE_VIDEO_DECODE
+    })
+
+    afterEach(() => {
+        Object.defineProperty(process, 'platform', platformDescriptor)
+        jest.restoreAllMocks()
+    })
+
+    test.each([undefined, '0'])('allows hardware decoding when the software fallback is %s', (value) => {
+        if (value !== undefined)
+            process.env.INCYCLIST_SOFTWARE_VIDEO_DECODE = value
+
+        IncyclistApp.configureCommandLine()
+
+        expect(app.commandLine.appendSwitch).toHaveBeenCalledWith('enable-experimental-web-platform-features')
+        expect(app.commandLine.appendSwitch).not.toHaveBeenCalledWith('disable-features', expect.anything())
+    })
+
+    test('retains the software decoding workaround when explicitly requested', () => {
+        process.env.INCYCLIST_SOFTWARE_VIDEO_DECODE = '1'
+
+        IncyclistApp.configureCommandLine()
+
+        expect(app.commandLine.appendSwitch).toHaveBeenCalledWith(
+            'disable-features',
+            'AcceleratedVideoDecodeLinuxGL,VaapiVideoDecoder,VaapiVideoDecodeLinuxGL,VaapiIgnoreDriverChecks'
+        )
+    })
+
+    test.each(['darwin', 'win32'])('leaves %s command-line configuration unchanged', (platform) => {
+        Object.defineProperty(process, 'platform', { value: platform })
+        process.env.INCYCLIST_SOFTWARE_VIDEO_DECODE = '1'
+
+        IncyclistApp.configureCommandLine()
+
+        expect(app.commandLine.appendSwitch).not.toHaveBeenCalled()
+    })
+})
 
 describe('IncyclistApp - quit sequence', () => {
 
